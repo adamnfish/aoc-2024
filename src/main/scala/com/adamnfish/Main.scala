@@ -7,6 +7,7 @@ import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.adamnfish.days.Day01
 import sttp.client3.httpclient.cats.HttpClientCatsBackend
 import sttp.client3.*
+import scala.Console.*
 
 import java.io.{File, FileWriter}
 import java.nio.file.Files
@@ -19,6 +20,9 @@ object Main extends IOApp {
 
         case "1" :: "1" :: input :: _ =>
           Day01.part1(input)
+
+        case "1" :: "2" :: input :: _ =>
+          Day01.part2(input)
 
         // fetches the day's input and saves it to the correct location
         case "load" :: day :: Nil =>
@@ -61,8 +65,9 @@ object Main extends IOApp {
 
         // unimplemented days
         case day :: puzzle :: _ =>
-          IO.println(s"Day $day, puzzle $puzzle is not yet implemented")
-            .as(())
+          IO.println(
+            s"${RED}Day $day, puzzle ${BOLD}$puzzle${RESET}${RED} is not yet implemented${RESET}"
+          ).as(())
 
         // prompt with help if no args supplied
         case _ =>

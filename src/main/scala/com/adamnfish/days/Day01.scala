@@ -16,17 +16,40 @@ object Day01:
         .evalMap(Parser.parseLine)
         .compile
         .toList
-      totalDistance = sortColumns(intPairs)
-        .map(distance.tupled)
+      totalDistance = Part1
+        .sortColumns(intPairs)
+        .map(Part1.distance.tupled)
         .sum
     yield totalDistance
 
-  def sortColumns(intPairs: List[(Int, Int)]): List[(Int, Int)] =
-    val (l, r) = intPairs.unzip
-    l.sortBy(identity).zip(r.sortBy(identity))
+  def part2(inputFile: String) =
+    for
+      intPairs <- Tools
+        .inputLines("1", inputFile)
+        .filter(_.nonEmpty)
+        .evalMap(Parser.parseLine)
+        .compile
+        .toList
+      similarityScore = Part2
+        .groupByCount(intPairs)
+        .map { case (n, count) => n * count }
+        .sum
+    yield similarityScore
 
-  def distance(l: Int, r: Int): Int =
-    math.abs(l - r)
+  object Part1:
+    def sortColumns(intPairs: List[(Int, Int)]): List[(Int, Int)] =
+      val (l, r) = intPairs.unzip
+      l.sortBy(identity).zip(r.sortBy(identity))
+
+    def distance(l: Int, r: Int): Int =
+      math.abs(l - r)
+
+  object Part2:
+    def groupByCount(intPairs: List[(Int, Int)]): List[(Int, Int)] =
+      val (l, r) = intPairs.unzip
+      l.foldRight(List.empty[(Int, Int)]) { case (n, acc) =>
+        (n, r.count(_ == n)) :: acc
+      }
 
   object Parser:
     import fastparse.*, SingleLineWhitespace.*
