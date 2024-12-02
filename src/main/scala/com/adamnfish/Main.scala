@@ -28,6 +28,9 @@ object Main extends IOApp {
         case "2" :: "1" :: input :: _ =>
           Day02.part1(input)
 
+        case "2" :: "2" :: input :: _ =>
+          Day02.part2(input)
+
         // fetches the day's input and saves it to the correct location
         case "load" :: day :: Nil =>
           val paddedDayName = day.reverse.padTo(2, '0').reverse
