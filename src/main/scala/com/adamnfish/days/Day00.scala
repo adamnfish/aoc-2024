@@ -5,6 +5,7 @@ import cats.data.*
 import cats.syntax.all.*
 import cats.effect.IO
 import com.adamnfish.Tools
+import com.adamnfish.Parsing
 
 object Day00:
   def part1(inputFile: String) =

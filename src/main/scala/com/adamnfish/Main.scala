@@ -6,6 +6,7 @@ import cats.syntax.all.*
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.adamnfish.days.Day01
 import com.adamnfish.days.Day02
+import com.adamnfish.days.Day03
 import sttp.client3.httpclient.cats.HttpClientCatsBackend
 import sttp.client3.*
 import scala.Console.*
@@ -30,6 +31,12 @@ object Main extends IOApp {
 
         case "2" :: "2" :: input :: _ =>
           Day02.part2(input)
+
+        case "3" :: "1" :: input :: _ =>
+          Day03.part1(input)
+
+        case "3" :: "2" :: input :: _ =>
+          Day03.part2(input)
 
         // fetches the day's input and saves it to the correct location
         case "load" :: day :: Nil =>

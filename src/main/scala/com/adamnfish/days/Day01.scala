@@ -47,7 +47,7 @@ object Day01:
   object Part2:
     def groupByCount(intPairs: List[(Int, Int)]): List[(Int, Int)] =
       val (l, r) = intPairs.unzip
-      l.foldRight(List.empty[(Int, Int)]) { case (n, acc) =>
+      l.foldRight(Nil) { case (n, acc) =>
         (n, r.count(_ == n)) :: acc
       }
 
