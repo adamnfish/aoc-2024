@@ -7,7 +7,6 @@ import cats.syntax.all.*
 import com.adamnfish.{Parsing, Tools}
 import com.adamnfish.Parsing.*
 
-import javax.naming.ldap.PagedResultsControl
 import scala.annotation.tailrec
 
 object Day05:
@@ -47,7 +46,40 @@ object Day05:
     yield middleSum
 
   def part2(inputFile: String) =
-    Tools.inputLines("5", inputFile).compile.lastOrError
+    val lines = Tools.inputLines("5", inputFile)
+    for
+      pageDependencies <- lines
+        .takeWhile(_.nonEmpty, false)
+        .evalMap(Parser.parseOrderingRule[IO])
+        // store the dependencies for each page
+        .scan(Map.empty[Int, Set[Int]]) { case (acc, or) =>
+          acc.updatedWith(or.page) {
+            case None =>
+              Some(Set(or.dependsOn))
+            case Some(dependencies) =>
+              Some(dependencies + or.dependsOn)
+          }
+        }
+        .compile
+        .lastOrError
+      middleSum <- lines
+        .dropThrough(_.nonEmpty)
+        .filter(_.nonEmpty)
+        .evalMap(Parser.parsePages[IO])
+        // collect info about which pages follow each page, to check against the page dependencies
+        .map { pages =>
+          (pages, pagesWithFolllowingPages(pages.pages))
+        }
+        .mapFilter { case (pages, following) =>
+          if (isValidPages(following, pageDependencies)) None
+          else Some(pages)
+        }
+        .evalMap(p => reorderForDependencies[IO](p, pageDependencies))
+        .evalMap(pages => middleElement[IO, Int](pages.pages))
+        .scan(0)(_ + _)
+        .compile
+        .lastOrError
+    yield middleSum
 
   case class OrderingRule(page: Int, dependsOn: Int)
   case class Pages(pages: List[Int])
@@ -85,6 +117,42 @@ object Day05:
     else
       val half = aa.length / 2
       MonadThrow[F].pure(aa(half))
+
+  def reorderForDependencies[F[_]: MonadThrow](
+      pages: Pages,
+      pageDependencies: Map[Int, Set[Int]]
+  ): F[Pages] =
+    val relevantPages = pages.pages.toSet
+    val relevantDependencies =
+      pageDependencies.view.filterKeys(relevantPages.contains).toMap
+    def loop(
+        remainingPages: Set[Int],
+        accF: F[List[Int]]
+    ): F[List[Int]] =
+      if (remainingPages.isEmpty) accF
+      else
+        for
+          accPages <- accF
+          maybeNext =
+            remainingPages.find { page =>
+              val thisPageDependencies =
+                relevantDependencies.getOrElse(page, Set.empty)
+              remainingPages.intersect(thisPageDependencies).isEmpty
+            }
+          next <- MonadThrow[F].fromOption(
+            maybeNext,
+            new RuntimeException(
+              s"Could not find a page to add next: ${remainingPages.mkString(",")}"
+            )
+          )
+          answer <- loop(
+            remainingPages - next,
+            MonadThrow[F].pure(accPages :+ next)
+          )
+        yield answer
+
+    loop(relevantPages, MonadThrow[F].pure(Nil))
+      .map(Pages(_))
 
   object Parser:
     import fastparse.*
