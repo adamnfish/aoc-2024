@@ -8,6 +8,7 @@ import com.adamnfish.days.Day01
 import com.adamnfish.days.Day02
 import com.adamnfish.days.Day03
 import com.adamnfish.days.Day04
+import com.adamnfish.days.Day05
 import sttp.client3.httpclient.cats.HttpClientCatsBackend
 import sttp.client3.*
 import scala.Console.*
@@ -44,6 +45,12 @@ object Main extends IOApp {
 
         case "4" :: "2" :: input :: _ =>
           Day04.part2(input)
+
+        case "5" :: "1" :: input :: _ =>
+          Day05.part1(input)
+
+        case "5" :: "2" :: input :: _ =>
+          Day05.part2(input)
 
         // fetches the day's input and saves it to the correct location
         case "load" :: day :: Nil =>
