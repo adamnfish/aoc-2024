@@ -1,3 +1,5 @@
+puzzle-inputs/day*/input.txt
+
 .idea/
 .bsp/
 **/target
