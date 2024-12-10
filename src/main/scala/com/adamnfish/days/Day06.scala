@@ -17,11 +17,38 @@ object Day06:
           .inputLines("6", inputFile)
       )
       guard <- IO.fromOption(guardOpt)(new RuntimeException("No guard found"))
-      visited = advanceGuardToEnd(guard, obstacles, mapEdges)
+      (_, visited) = advanceGuardToEnd(guard, obstacles, mapEdges)
     yield visited.size
 
   def part2(inputFile: String) =
-    ???
+    for
+      (mapEdges, obstacles, guardOpt) <- getMappedArea(
+        Tools
+          .inputLines("6", inputFile)
+      )
+      guard <- IO.fromOption(guardOpt)(new RuntimeException("No guard found"))
+      (_, visited) = advanceGuardToEnd(guard, obstacles, mapEdges)
+      // "visited" is the set of all the places a relevant obstacle can be placed
+      looping = visited.map { newObstacle =>
+        val updatedObstacles = obstacles.copy(
+          byColumn = obstacles.byColumn.updatedWith(newObstacle.col) {
+            case Some(existing) =>
+              Some(existing + newObstacle)
+            case None =>
+              Some(Set(newObstacle))
+          },
+          byRow = obstacles.byRow.updatedWith(newObstacle.row) {
+            case Some(existing) =>
+              Some(existing + newObstacle)
+            case None =>
+              Some(Set(newObstacle))
+          }
+        )
+        advanceGuardToEnd(guard, updatedObstacles, mapEdges)
+      }
+    yield
+      // all the adjusted maps that provided a loop
+      looping.count(_._1)
 
   def getMappedArea(
       input: Stream[IO, String]
@@ -104,8 +131,8 @@ object Day06:
       startGuard: Guard,
       obstacles: Obstacles,
       mapEdges: MapEdges
-  ): Set[Coord] =
-    def loop(guard: Guard, acc: Set[Coord]): Set[Coord] =
+  ): (Boolean, Set[Coord]) =
+    def loop(guard: Guard, acc: Set[Guard]): (Boolean, Set[Guard]) =
       val (maybeCollision, finishCells) =
         guard.facing match {
           case Direction.Up =>
@@ -128,13 +155,15 @@ object Day06:
                     (obstacle.row + 1)
                       .until(guard.position.row)
                       .toSet
-                      .map(row => Coord(guard.position.col, row))
+                      .map(row =>
+                        Guard(guard.facing, Coord(guard.position.col, row))
+                      )
                   )
                 ),
               (guard.position.row)
                 .to(mapEdges.minRow + 1)
                 .toSet
-                .map(row => Coord(guard.position.col, row))
+                .map(row => Guard(guard.facing, Coord(guard.position.col, row)))
             )
           case Direction.Down =>
             (
@@ -151,13 +180,15 @@ object Day06:
                     guard.position.row
                       .until(obstacle.row)
                       .toSet
-                      .map(row => Coord(guard.position.col, row))
+                      .map(row =>
+                        Guard(guard.facing, Coord(guard.position.col, row))
+                      )
                   )
                 ),
-              (guard.position.row)
+              guard.position.row
                 .until(mapEdges.maxRow)
                 .toSet
-                .map(row => Coord(guard.position.col, row))
+                .map(row => Guard(guard.facing, Coord(guard.position.col, row)))
             )
           case Direction.Left =>
             (
@@ -174,13 +205,15 @@ object Day06:
                     (obstacle.col + 1)
                       .until(guard.position.col)
                       .toSet
-                      .map(col => Coord(col, guard.position.row))
+                      .map(col =>
+                        Guard(guard.facing, Coord(col, guard.position.row))
+                      )
                   )
                 ),
               (mapEdges.minCol)
                 .until(guard.position.col)
                 .toSet
-                .map(col => Coord(col, guard.position.row))
+                .map(col => Guard(guard.facing, Coord(col, guard.position.row)))
             )
           case Direction.Right =>
             (
@@ -197,25 +230,41 @@ object Day06:
                     guard.position.col
                       .until(obstacle.col)
                       .toSet
-                      .map(col => Coord(col, guard.position.row))
+                      .map(col =>
+                        Guard(guard.facing, Coord(col, guard.position.row))
+                      )
                   )
                 ),
               guard.position.col
                 .until(mapEdges.maxCol)
                 .toSet
-                .map(col => Coord(col, guard.position.row))
+                .map(col => Guard(guard.facing, Coord(col, guard.position.row)))
             )
         }
 
       maybeCollision match
         case Some((newGuard, newLocations)) =>
           // we hit a block, so we'll loop around and go again from the new location
-          loop(guard = newGuard, acc = newLocations ++ acc)
+          // but first check if any new locations have already been visited
+          // if so, we have a loop!
+          if ((newLocations - guard).intersect(acc).nonEmpty)
+            (true, newLocations ++ acc)
+          else
+            loop(guard = newGuard, acc = newLocations ++ acc)
         case None =>
           // we're finished, so just add the new locations
-          acc ++ finishCells
+          // if we finished then there's no loop!
+          (false, acc ++ finishCells)
 
-    loop(startGuard, Set.empty)
+    val (isLoop, guardPositions) = loop(startGuard, Set.empty)
+    (isLoop, guardPositions.map(_.position))
+
+  def advanceGuardToLoop(
+      startGuard: Guard,
+      obstacles: Obstacles,
+      mapEdges: MapEdges
+  ): Boolean =
+    ???
 
   def visualise(
       edges: MapEdges,
