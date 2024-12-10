@@ -15,6 +15,8 @@ lazy val root = (project in file(".")).settings(
     "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     "org.scalacheck" %% "scalacheck" % "1.18.1" % Test,
     "org.scalatestplus" %% "scalacheck-1-15" % "3.2.11.0" % Test,
+    "org.typelevel" %% "cats-effect-testing-scalatest" % "1.6.0" % Test,
+    "org.typelevel" %% "scalacheck-effect" % "1.0.4" % Test
   ),
-  Compile / run / fork := true,
+  Compile / run / fork := true
 )

@@ -4,6 +4,7 @@ import cats.*
 import cats.data.*
 import cats.effect.IO
 import cats.syntax.all.*
+import fs2.{Compiler, Stream}
 import com.adamnfish.Parsing.*
 import com.adamnfish.days.Day06.Guard
 import com.adamnfish.{Parsing, Tools}
@@ -11,8 +12,24 @@ import com.adamnfish.{Parsing, Tools}
 object Day06:
   def part1(inputFile: String) =
     for
-      (_, obstacles, guardOpt) <- Tools
-        .inputLines("6", inputFile)
+      (mapEdges, obstacles, guardOpt) <- getMappedArea(
+        Tools
+          .inputLines("6", inputFile)
+      )
+      guard <- IO.fromOption(guardOpt)(new RuntimeException("No guard found"))
+      visited = advanceGuardToEnd(guard, obstacles, mapEdges)
+    yield visited.size
+
+  def part2(inputFile: String) =
+    ???
+
+  def getMappedArea(
+      input: Stream[IO, String]
+  ): IO[(MapEdges, Obstacles, Option[Guard])] =
+    for
+      firstRow <- input.take(1).compile.lastOrError
+      colsCount = firstRow.length
+      (rowsCount, obstacles, guardOpt) <- input
         .filter(_.nonEmpty)
         .map(parseRow)
         .scan[(Int, Obstacles, Option[Guard])]((0, Obstacles.empty, None))(
@@ -20,23 +37,7 @@ object Day06:
         )
         .compile
         .lastOrError
-      // assume obstacles exist on the extreme edges - currently true!
-      mapEdges = MapEdges(
-        minRow = 0,
-        maxRow = obstacles.byRow.keys.max,
-        minCol = 0,
-        maxCol = obstacles.byColumn.keys.max
-      )
-      _ <- IO.println(visualise(mapEdges, obstacles, Set.empty))
-      guard <- IO.fromOption(guardOpt)(new RuntimeException("No guard found"))
-      _ <- IO.println(s"obs: $obstacles, guard: $guard")
-      visited = advanceGuardToEnd(guard, obstacles, mapEdges)
-      _ <- IO.println(visited)
-      _ <- IO.println(visualise(mapEdges, obstacles, visited))
-    yield visited.size
-
-  def part2(inputFile: String) =
-    Tools.inputLines("6", inputFile).compile.lastOrError
+    yield (MapEdges(0, rowsCount, 0, colsCount), obstacles, guardOpt)
 
   // (0, 0) is top left in this system
   case class Coord(col: Int, row: Int)
@@ -124,14 +125,14 @@ object Day06:
                       Coord(guard.position.col, obstacle.row + 1)
                     ),
                     // cells that got added
-                    guard.position.row
-                      .until(obstacle.row)
+                    (obstacle.row + 1)
+                      .until(guard.position.row)
                       .toSet
                       .map(row => Coord(guard.position.col, row))
                   )
                 ),
-              guard.position.row
-                .until(mapEdges.minRow)
+              (guard.position.row)
+                .to(mapEdges.minRow + 1)
                 .toSet
                 .map(row => Coord(guard.position.col, row))
             )
@@ -153,7 +154,7 @@ object Day06:
                       .map(row => Coord(guard.position.col, row))
                   )
                 ),
-              guard.position.row
+              (guard.position.row)
                 .until(mapEdges.maxRow)
                 .toSet
                 .map(row => Coord(guard.position.col, row))
@@ -170,14 +171,14 @@ object Day06:
                       Direction.Up,
                       Coord(obstacle.col + 1, guard.position.row)
                     ),
-                    guard.position.col
-                      .until(obstacle.col)
+                    (obstacle.col + 1)
+                      .until(guard.position.col)
                       .toSet
                       .map(col => Coord(col, guard.position.row))
                   )
                 ),
-              guard.position.col
-                .until(mapEdges.minCol)
+              (mapEdges.minCol)
+                .until(guard.position.col)
                 .toSet
                 .map(col => Coord(col, guard.position.row))
             )
@@ -219,12 +220,13 @@ object Day06:
   def visualise(
       edges: MapEdges,
       obstacles: Obstacles,
-      visited: Set[Coord]
+      visited: Set[Coord],
+      guardOpt: Option[Guard]
   ): String =
     (0 until edges.maxRow)
-      .map { col =>
+      .map { row =>
         val chars = for
-          row <- 0 until edges.maxCol
+          col <- 0 until edges.maxCol
           coord = Coord(col, row)
           isObstacle = obstacles.byColumn
             .get(col)
@@ -233,8 +235,17 @@ object Day06:
           isVisited = visited.contains(coord)
         yield
           if (isVisited && isObstacle) '?'
-          else if (isVisited) '!'
+          else if (isVisited) '+'
           else if (isObstacle) '#'
+          else if (guardOpt.exists(_.position == coord))
+            guardOpt
+              .map {
+                case Guard(Direction.Up, _)    => '^'
+                case Guard(Direction.Down, _)  => 'v'
+                case Guard(Direction.Left, _)  => '<'
+                case Guard(Direction.Right, _) => '>'
+              }
+              .getOrElse('?')
           else '.'
         chars.mkString
       }
