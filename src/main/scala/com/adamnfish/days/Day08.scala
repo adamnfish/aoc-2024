@@ -1,13 +1,12 @@
 package com.adamnfish.days
 
-import fs2.Stream
 import cats.*
-import cats.data.*
 import cats.effect.IO
-import cats.syntax.all.*
-import com.adamnfish.Parsing.*
-import com.adamnfish.{Parsing, Tools}
-import Console.*
+import com.adamnfish.Tools
+import fs2.Stream
+
+import scala.Console.*
+import scala.annotation.tailrec
 
 object Day08:
   def part1(inputFile: String) =
@@ -16,26 +15,55 @@ object Day08:
         Tools
           .inputLines("8", inputFile)
       )
-      _ <- IO.println(visualiseMap(antennas, Set.empty, mapSize))
-      _ <- IO.println("========")
-      antinodes = antennas.view.mapValues(findAntinodes(_, mapSize))
+      antinodes = antennas.view.mapValues(Part1.findAntinodes(_, mapSize))
       antinodePositions = antinodes.values.toSet.flatten
-      _ <- IO.println(visualiseMap(antennas, antinodePositions, mapSize))
     yield antinodePositions.size
 
   def part2(inputFile: String) =
-    Tools.inputLines("8", inputFile).compile.lastOrError
-
-  def findAntinodes(positions: Set[Coord], mapSize: MapSize): Set[Coord] =
     for
-      p1 <- positions
-      p2 <- positions
-      if p1 != p2
-      antinode <- Set(
-        Coord((2 * p1.col) - p2.col, (2 * p1.row) - p2.row)
+      (mapSize, antennas) <- getMappedArea(
+        Tools
+          .inputLines("8", inputFile)
       )
-      if withinMapBounds(antinode, mapSize)
-    yield antinode
+      antinodes = antennas.view.mapValues(Part2.findAntinodes(_, mapSize))
+      antinodePositions = antinodes.values.toSet.flatten
+    yield antinodePositions.size
+
+  object Part1:
+    def findAntinodes(positions: Set[Coord], mapSize: MapSize): Set[Coord] =
+      for
+        p1 <- positions
+        p2 <- positions
+        if p1 != p2
+        antinode = Coord((2 * p1.col) - p2.col, (2 * p1.row) - p2.row)
+        if withinMapBounds(antinode, mapSize)
+      yield antinode
+
+  object Part2:
+    def findAntinodes(positions: Set[Coord], mapSize: MapSize): Set[Coord] =
+      for
+        p1 <- positions
+        p2 <- positions
+        if p1 != p2
+        colDelta = p1.col - p2.col
+        rowDelta = p1.row - p2.row
+        antinode <- translateWhileInBounds(p1, colDelta, rowDelta, mapSize)
+        if withinMapBounds(antinode, mapSize)
+      yield antinode
+
+    // accumulate repeated applications of the given translation while it remains in bounds
+    def translateWhileInBounds(
+        position: Coord,
+        deltaCol: Int,
+        deltaRow: Int,
+        mapSize: MapSize
+    ): Set[Coord] =
+      @tailrec
+      def loop(last: Coord, acc: Set[Coord]): Set[Coord] =
+        val next = Coord(last.col + deltaCol, last.row + deltaRow)
+        if (withinMapBounds(next, mapSize)) loop(next, acc + next)
+        else acc
+      loop(position, Set(position))
 
   def withinMapBounds(coord: Coord, mapSize: MapSize): Boolean =
     coord.col >= 0 && coord.col < mapSize.cols &&
@@ -63,13 +91,11 @@ object Day08:
   def parseLine(line: String): Map[Char, Set[Int]] =
     line.zipWithIndex
       .filterNot { case (c, _) => c == '.' }
-      .foldLeft(Map.empty) { case (acc, (char, col)) =>
-        acc.updatedWith(char) {
-          case None =>
-            Some(Set(col))
-          case Some(existing) =>
-            Some(existing + col)
-        }
+      .foldLeft(Map.empty[Char, Set[Int]]) { case (acc, (char, col)) =>
+        Semigroup[Map[Char, Set[Int]]].combine(
+          acc,
+          Map(char -> Set(col))
+        )
       }
 
   def accumulateMappedArea(
@@ -93,12 +119,12 @@ object Day08:
       val cols = 0.until(size.cols).map { col =>
         val here = Coord(col, row)
         val char = antennas
-          // there shouldn't be more than one antenna here
-          .collectFirst {
+          .collectFirst { // there shouldn't be more than one antenna at a given location!
             case (char, coords) if coords.contains(here) => char
           }
           .getOrElse('.')
         if (antinodes.contains(here))
+          // use a background colour for antinodes so they can share their location with an antenna
           s"${CYAN_B}${char}${RESET}"
         else s"$char"
       }
